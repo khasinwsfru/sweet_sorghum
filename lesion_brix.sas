@@ -1,4 +1,4 @@
-Data sweet2; input assay pot rep line$ trt$ time$ bloom lesion brix exert peduncle head inocdate harvest; cards;													
+Data sweet2; input assay pot rep line$ trt$ time$ bloom lesion brix exert peduncle head inocdate harvest; cards;	 												
 1	90001	1	M81-E	Mp01-001	Day_3	284	26	15.4	-3.3	36.3	32.2	289	292
 1	90002	1	M81-E	PDB	Day_3	282	2	16	2.2	39	27	289	292
 1	90003	1	M81-E	H03-11-9	Day_0	283	2	13.9	0.2	63.4	29.8	289	289
