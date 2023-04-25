@@ -1,0 +1,675 @@
+---
+title: "sweet sorghum transcriptome analysis 2019"
+output: html_notebook
+---
+
+
+```{r}
+library(DESeq2)
+library(tximport)
+library(tximportData)
+library(GenomicFeatures)
+library(plyr)
+library(dplyr)
+library(tidyverse)
+library(tximportData)
+library(AnnotationDbi)
+library(WGCNA)
+options(stringsAsFactors = FALSE) #no longer needed in newer versions of R
+```
+
+Make the gene-to-transcript table.
+```{r}
+txdb <- makeTxDbFromGFF("/Sbicolor/v3.1.1/annotation/Sbicolor_454_v3.1.1.gene_exons.gff3")
+keytypes(txdb) 
+#Options are "CDSID"    "CDSNAME"  "EXONID"   "EXONNAME" "GENEID"   "TXID"     "TXNAME" 
+k <- keys(txdb, keytype = "TXNAME")
+transcripts <- AnnotationDbi::select(txdb, k, "GENEID", "TXNAME")
+colnames(transcripts) <- c('target_id', 'gene_id')
+```
+
+```{r}
+#colman_fus_13_c and colman_pdb_3_d were removed from the experiment after quality filtering
+myexpt <- c("colman_fus_13_a", "colman_fus_13_b", "colman_fus_13_d", "colman_fus_3_a", "colman_fus_3_b", "colman_fus_3_c", "colman_fus_3_d", "colman_macro_13_a", "colman_macro_13_b", "colman_macro_13_c", "colman_macro_13_d", "colman_macro_3_a", "colman_macro_3_b", "colman_macro_3_c", "colman_macro_3_d", "colman_pdb_13_a", "colman_pdb_13_b", "colman_pdb_13_c", "colman_pdb_13_d", "colman_pdb_3_a", "colman_pdb_3_b", "colman_pdb_3_c", "m81e_fus_13_a", "m81e_fus_13_b", "m81e_fus_13_c", "m81e_fus_13_d", "m81e_fus_3_a", "m81e_fus_3_b", "m81e_fus_3_c", "m81e_fus_3_d", "m81e_macro_13_a", "m81e_macro_13_b", "m81e_macro_13_c", "m81e_macro_13_d", "m81e_macro_3_a", "m81e_macro_3_b", "m81e_macro_3_c", "m81e_macro_3_d", "m81e_pdb_13_a", "m81e_pdb_13_b", "m81e_pdb_13_c", "m81e_pdb_13_d", "m81e_pdb_3_a", "m81e_pdb_3_b", "m81e_pdb_3_c", "m81e_pdb_3_d")
+mystring <- "/media/user/mayabackup/sequence-files/fastq/fastqcat/trim/kquant/"
+myfiles <- file.path(mystring, myexpt, 'abundance.h5')
+names(myfiles) <- myexpt
+txitx <- tximport(files = myfiles, type = "kallisto", tx2gene = transcripts, countsFromAbundance = "no")
+targets <- read.table('/media/user/mayabackup/sweetinfo/sweets-design2.csv', sep=',', header=TRUE); View(targets)
+rownames(sampleTable) <- sampleTable$sample.id
+rownames(targets) <- targets$sample.id
+Condition <- relevel(factor(sampleTable$Condition), ref="Colman.PDB.3.DAI")
+Line <- relevel(factor(sampleTable$Line), ref="M81E")
+Treatment <- relevel(factor(sampleTable$Treatment), ref="PDB")
+Timepoint <- relevel(factor(sampleTable$Timepoint), ref="3.DAI")
+design<- model.matrix(~0 + Condition); rownames(design) <- sampleTable$sample.id
+
+sampleTable <- targets
+#rownames(sampleTable) %in% colnames(txitx$counts) #TRUE
+rownames(sampleTable) == colnames(txitx$counts) #FALSE
+txitx$counts <- txitx$counts[, rownames(sampleTable)]
+#rownames(sampleTable) == colnames(txitx$counts) #TRUE now
+```
+
+```{r}
+dds <- DESeqDataSetFromMatrix(round(txitx$counts), sampleTable, ~Condition)
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+table(keep)
+vsd <- vst(dds, blind=FALSE)
+ds2.counts <- assay(vsd) vsd$Timepoint
+tcounts <- t(ds2.counts)
+```
+
+```{r}
+#Figure 3A
+plotPCA(vsd, intgroup = "Line")+
+  aes(color = vsd$Treatment, shape = vsd$Timepoint, group = vsd$Line, alpha = 0.4)+
+  #geom_point(size = 3)+
+  stat_ellipse(alpha = 0.4)+
+  scale_color_manual(name="Treatment", 
+                     values = c("darkorange4",
+                                "black",
+                                "darkorange"))+
+  theme_light()
+
+#Figure 3B
+myplotPCA(vsd, intgroup = "Line")+
+  aes(color = vsd$Treatment, shape = vsd$Timepoint, group = vsd$Line, alpha = 0.4)+
+  #geom_point(size = 3)+
+  stat_ellipse(alpha = 0.4)+
+  scale_color_manual(name="Treatment", 
+                     values = c("darkorange4",
+                                "black",
+                                "darkorange"))+
+  theme_light()
+```
+
+
+
+Straight from WGCNA tutorial.
+
+```{r}
+sampleTree = hclust(dist(tcounts));
+#colman_fus_13_c and colman_pdb_3_d were removed from the experiment based on this clustering 
+sizeGrWindow(12,9)
+pdf(file = "sample-clustering2.pdf", width = 12, height = 9);
+par(cex = 0.6);
+par(mar = c(0,4,2,0))
+plot(sampleTree, main = "Sample clustering to detect outliers - sweets 2", sub="", xlab="", cex.lab = 1.5,
+cex.axis = 1.5, cex.main = 2)
+abline(h = 100, col = "red");
+dev.off()
+```
+```{r}
+#subset samples
+Colman <- tcounts[1:22,]
+M81E <- tcounts[23:46,]
+```
+
+```{r}
+nSets = 2
+setLabels <- c("Colman", "M81E")
+
+multiExpr <- vector(mode = "list", length = nSets)
+multiExpr[[1]] <- list(data = as.data.frame(Colman))
+names(multiExpr[[1]]$data) <- colnames(Colman)
+#rownames(multiExpr[[1]]$data)  <- rownames(datTraitswt)
+multiExpr[[2]]  <-  list(data = as.data.frame(M81E))
+names(multiExpr[[2]]$data) = colnames(M81E)
+exprSize = checkSets(multiExpr)
+
+
+gsg = goodSamplesGenesMS(multiExpr, verbose = 3);
+gsg$allOK
+sampleTrees = list()
+for (set in 1:nSets)
+{
+sampleTrees[[set]] = hclust(dist(multiExpr[[set]]$data), method = "average")
+}
+```
+
+```{r}
+if (!gsg$allOK)
+{
+# Print information about the removed genes:
+if (sum(!gsg$goodGenes) > 0)
+printFlush(paste("Removing genes:", paste(names(multiExpr[[1]]$data)[!gsg$goodGenes],
+collapse = ", ")))
+for (set in 1:exprSize$nSets)
+{
+2
+if (sum(!gsg$goodSamples[[set]]))
+printFlush(paste("In set", setLabels[set], "removing samples",
+paste(rownames(multiExpr[[set]]$data)[!gsg$goodSamples[[set]]], collapse = ", ")))
+# Remove the offending genes and samples
+multiExpr[[set]]$data = multiExpr[[set]]$data[gsg$goodSamples[[set]], gsg$goodGenes];
+}
+# Update exprSize
+exprSize = checkSets(multiExpr)
+}
+
+gsg = goodSamplesGenesMS(multiExpr, verbose = 3);
+gsg$allOK
+```
+
+```{r}
+# Choose a set of soft-thresholding powers
+powers = c(seq(3,10,by=1), seq(12,20, by=2));
+# Initialize a list to hold the results of scale-free analysis
+powerTables = vector(mode = "list", length = nSets);
+# Call the network topology analysis function for each set in turn
+for (set in 1:nSets)
+  powerTables[[set]] = list(data = pickSoftThreshold(multiExpr[[set]]$data, powerVector=powers,
+                                                     verbose = 2)[[2]]);
+collectGarbage();
+# Plot the results:
+colors = c("black", "red")
+# Will plot these columns of the returned scale free analysis tables
+plotCols = c(2,5,6,7)
+colNames = c("Scale Free Topology Model Fit", "Mean connectivity", "Median connectivity",
+"Max connectivity");
+# Get the minima and maxima of the plotted points
+ylim = matrix(NA, nrow = 2, ncol = 4);
+for (set in 1:nSets)
+{
+  for (col in 1:length(plotCols))
+  {
+    ylim[1, col] = min(ylim[1, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+    ylim[2, col] = max(ylim[2, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+  }
+}
+# Plot the quantities in the chosen columns vs. the soft thresholding power
+sizeGrWindow(8, 6)
+pdf(file = "/media/user/mayabackup/sweetinfo/scalefree.pdf", wi = 8, he = 6)
+par(mfcol = c(2,2));
+par(mar = c(4.2, 4.2 , 2.2, 0.5))
+cex1 = 0.7;
+for (col in 1:length(plotCols)) for (set in 1:nSets)
+{
+  if (set==1)
+  {
+    plot(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+         xlab="Soft Threshold (power)",ylab=colNames[col],type="n", ylim = ylim[, col],
+         main = colNames[col]);
+    addGrid();
+  }
+  if (col==1)
+  {
+    text(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+         labels=powers,cex=cex1,col=colors[set]);
+  } else
+    text(powerTables[[set]]$data[,1], powerTables[[set]]$data[,plotCols[col]],
+         labels=powers,cex=cex1,col=colors[set]);
+  if (col==1)
+  {
+    legend("bottomright", legend = setLabels, col = colors, pch = 20) ;
+  } else
+    legend("topright", legend = setLabels, col = colors, pch = 20) ;
+}
+dev.off()
+```
+
+
+```{r}
+cons = blockwiseConsensusModules(multiExpr, power = 12,
+                                  networkType = "signed",
+TOMType = "signed", minModuleSize = 75, deepSplit=2, #med sensitive to module splitting
+#reassignThreshold = let's leave this  to default unless we need to mess with it.
+mergeCutHeight = 0.2,
+maxPOutliers = 0.05,
+corType="bicor",
+numericLabels = TRUE, 
+maxBlockSize = 25000,
+pamRespectsDendro = FALSE,
+#minKMEtoStay = let's leave this  to default unless we need to mess with it.
+saveTOMs = TRUE,
+saveTOMFileBase = "consF.c",
+      saveIndividualTOMs = TRUE,
+      individualTOMFileNames = "consindividualTOM-Set%s-Block%b.RData",
+      saveConsensusTOMS = TRUE,
+      consensusTOMFilePattern = "cons.consensusTOM-block.%b.RData",
+returnTOMs = TRUE,
+networkCalibration = "full quantile",
+robustY=FALSE,
+verbose = 5)
+#reorder modules
+consMEs <- cons$multiMEs;
+moduleLabels <- cons$colors;
+# Convert the numeric labels to color labels
+moduleColors <- labels2colors(moduleLabels)
+consTree <- cons$dendrograms[[1]]
+```
+
+plot dendrogram of modules
+```{r}
+#Fig 3D
+sizeGrWindow(8,6)
+pdf(file = "consdend.pdf", wi = 8, he = 6)
+plotDendroAndColors(consTree, moduleColors,
+                    "Module colors",
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = TRUE, guideHang = 0.05,
+                    main = "Consensus gene dendrogram and module colors")
+
+dev.off()
+```
+
+
+```{r}
+traitData=read.table("sweettraits.csv", sep=",", header=TRUE)
+dim(traitData); names(traitData)
+mySamples <- traitData[,1]
+traitRows <- match(mySamples, traitData$sample)
+datTraits <- traitData[traitRows, -1]
+rownames(datTraits) <- mySamples
+```
+
+```{r}
+Traits = vector(mode="list", length = nSets);
+for (set in 1:nSets)
+{
+setSamples = rownames(multiExpr[[set]]$data);
+traitRows = match(setSamples, traitData$sample);
+Traits[[set]] = list(data = traitData[traitRows, -1]);
+rownames(Traits[[set]]$data) = traitData[traitRows, 1];
+}
+collectGarbage();
+# Define data set dimensions
+nGenes = exprSize$nGenes;
+nSamples = exprSize$nSamples
+```
+
+overall module-trait correlations
+```{r}
+moduleTraitCor = list()
+moduleTraitPvalue = list()
+
+for (set in 1:nSets)
+{
+  moduleTraitCor[[set]] = cor(consMEs[[set]]$data, Traits[[set]]$data, use = "p");
+  moduleTraitPvalue[[set]] = p.adjust(corPvalueFisher(moduleTraitCor[[set]], exprSize$nSamples[set]), method = "BH")
+}
+
+# Convert numerical lables to colors for labeling of modules in the plot
+MEColors = labels2colors(as.numeric(substring(names(consMEs[[1]]$data), 3)));
+MEColorNames = paste("ME", MEColors, sep="");
+# Open a suitably sized window (the user should change the window size if necessary)
+sizeGrWindow(10,7)
+pdf(file = "ModuleTraitRelationships-Colman.pdf", wi = 10, he = 7);
+# Plot the module-trait relationship table for set number 1
+set = 1
+textMatrix =  paste(signif(moduleTraitCor[[set]], 2), "\n(",
+                           signif(moduleTraitPvalue[[set]], 1), ")", sep = "");
+dim(textMatrix) = dim(moduleTraitCor[[set]])
+par(mar = c(6, 8.8, 3, 2.2));
+labeledHeatmap(Matrix = moduleTraitCor[[set]],
+               xLabels = names(Traits[[set]]$data),
+               yLabels = MEColorNames,
+               ySymbols = MEColorNames,
+               colorLabels = FALSE,
+               colors = blueWhiteRed (50),
+               textMatrix = textMatrix,
+               setStdMargins = FALSE,
+               cex.text = 0.5,
+               zlim = c(-1,1),
+               main = paste("Module--trait relationships in", setLabels[set]))
+dev.off();
+# Plot the module-trait relationship table for set number 2
+set = 2
+textMatrix =  paste(signif(moduleTraitCor[[set]], 2), "\n(",
+                           signif(moduleTraitPvalue[[set]], 1), ")", sep = "");
+dim(textMatrix) = dim(moduleTraitCor[[set]])
+sizeGrWindow(10,7)
+pdf(file = "ModuleTraitRelationships-M81E.pdf", wi = 10, he = 7);
+par(mar = c(6, 8.8, 3, 2.2));
+labeledHeatmap(Matrix = moduleTraitCor[[set]],
+               xLabels = names(Traits[[set]]$data),
+               yLabels = MEColorNames,
+               ySymbols = MEColorNames,
+               colorLabels = FALSE,
+               colors = blueWhiteRed (50),
+               textMatrix = textMatrix,
+               setStdMargins = FALSE,
+               cex.text = 0.5,
+               zlim = c(-1,1),
+               main = paste("Module--trait relationships in", setLabels[set]))
+dev.off()
+
+# Initialize matrices to hold the consensus correlation and p-value
+consensusCor = matrix(NA, nrow(moduleTraitCor[[1]]), ncol(moduleTraitCor[[1]]));
+consensusPvalue = matrix(NA, nrow(moduleTraitCor[[1]]), ncol(moduleTraitCor[[1]]));
+# Find consensus negative correlations
+negative = moduleTraitCor[[1]] < 0 & moduleTraitCor[[2]] < 0
+consensusCor[negative] = pmax(moduleTraitCor[[1]][negative], moduleTraitCor[[2]][negative]);
+consensusPvalue[negative] = pmax(moduleTraitPvalue[[1]][negative], moduleTraitPvalue[[2]][negative])
+# Find consensus positive correlations
+positive = moduleTraitCor[[1]] > 0 & moduleTraitCor[[2]] > 0
+consensusCor[positive] = pmin(moduleTraitCor[[1]][positive], moduleTraitCor[[2]][positive])
+consensusPvalue[positive] = pmax(moduleTraitPvalue[[1]][positive], moduleTraitPvalue[[2]][positive])
+
+textMatrix =  paste(signif(consensusCor, 2), "\n(",
+                           signif(consensusPvalue, 1), ")", sep = "");
+dim(textMatrix) = dim(moduleTraitCor[[set]])
+sizeGrWindow(10,7)
+pdf(file = "ModuleTraitRelationships-consensus.pdf", wi = 10, he = 7);
+par(mar = c(6, 8.8, 3, 2.2));
+labeledHeatmap(Matrix = consensusCor,
+               xLabels = names(Traits[[set]]$data),
+               yLabels = MEColorNames,
+               ySymbols = MEColorNames,
+               colorLabels = FALSE,
+               colors = blueWhiteRed(50),
+               textMatrix = textMatrix,
+               setStdMargins = FALSE,
+               cex.text = 0.5,
+               zlim = c(-1,1),
+               main = paste("Consensus module--trait relationships across\n",
+                            paste(setLabels, collapse = " and ")))
+
+consMEs.unord = multiSetMEs(multiExpr, universalColors = moduleColors, excludeGrey = TRUE)
+GS = list();
+kME = list();
+for (set in 1:nSets)
+{
+  GS[[set]] = corAndPvalue(multiExpr[[set]]$data, Traits[[set]]$data);
+  kME[[set]] = corAndPvalue(multiExpr[[set]]$data, consMEs.unord[[set]]$data);
+}
+
+phytozomeid <- (names(multiExpr[[1]]$data))
+GS.metaZ = (GS[[1]]$Z + GS[[2]]$Z)/sqrt(2);
+kME.metaZ = (kME[[1]]$Z + kME[[2]]$Z)/sqrt(2);
+GS.metaP = 2*pnorm(abs(GS.metaZ), lower.tail = FALSE);
+kME.metaP = 2*pnorm(abs(kME.metaZ), lower.tail = FALSE);
+
+GSmat = rbind(GS[[1]]$cor, GS[[2]]$cor, GS[[1]]$p, GS[[2]]$p, GS.metaZ, GS.metaP);
+nTraits = checkSets(Traits)$nGenes
+traitNames = colnames(Traits[[1]]$data)
+dim(GSmat) = c(nGenes, 6*nTraits)
+rownames(GSmat) = phytozomeid;
+colnames(GSmat) = spaste(
+    c("GS.set1.", "GS.set2.", "p.GS.set1.", "p.GS.set2.", "Z.GS.meta.", "p.GS.meta"),
+    rep(traitNames, rep(6, nTraits)))
+# Same code for kME:
+kMEmat = rbind(kME[[1]]$cor, kME[[2]]$cor, kME[[1]]$p, kME[[2]]$p, kME.metaZ, kME.metaP);
+MEnames = colnames(consMEs.unord[[1]]$data);
+nMEs = checkSets(consMEs.unord)$nGenes
+dim(kMEmat) = c(nGenes, 6*nMEs)
+rownames(kMEmat) = phytozomeid;
+colnames(kMEmat) = spaste(
+    c("kME.set1.", "kME.set2.", "p.kME.set1.", "p.kME.set2.", "Z.kME.meta.", "p.kME.meta"),
+    rep(MEnames, rep(6, nMEs)))
+
+info = data.frame(Phytozome = phytozomeid,
+             ModuleLabel = moduleLabels,
+             ModuleColor = labels2colors(moduleLabels),
+             GSmat,
+             kMEmat);
+
+```
+
+
+```{r}
+dds <- DESeq(dds)
+#Pairwise differential expression comparisons 
+ColmanPDB <- results(dds, contrast = c("Condition", "Colman.PDB.13.DAI", "Colman.PDB.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+ColmanFus <- results(dds, contrast = c("Condition", "Colman.Fus.13.DAI", "Colman.Fus.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+ColmanMacro <- results(dds, contrast = c("Condition", "Colman.Macro.13.DAI", "Colman.Macro.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+ColmanMacroVPDB3 <- results(dds, contrast = c("Condition", "Colman.Macro.3.DAI", "Colman.PDB.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+ColmanFusVPDB3 <- results(dds, contrast = c("Condition", "Colman.Fus.3.DAI", "Colman.PDB.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EPDB <- results(dds, contrast = c("Condition", "M81E.PDB.13.DAI", "M81E.PDB.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EFus <- results(dds, contrast = c("Condition", "M81E.Fus.13.DAI", "M81E.Fus.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EMacro <- results(dds, contrast = c("Condition", "M81E.Macro.13.DAI", "M81E.Macro.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EMacroVPDB3 <- results(dds, contrast = c("Condition", "M81E.Macro.3.DAI", "M81E.PDB.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EFusVPDB3 <- results(dds, contrast = c("Condition", "M81E.Fus.3.DAI", "M81E.PDB.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+ColmanMacroVPDB13 <- results(dds, contrast = c("Condition", "Colman.Macro.13.DAI", "Colman.PDB.13.DAI"), lfcThreshold = 1, alpha = 0.05)
+ColmanFusVPDB13 <- results(dds, contrast = c("Condition", "Colman.Fus.13.DAI", "Colman.PDB.13.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EMacroVPDB13 <- results(dds, contrast = c("Condition", "M81E.Macro.13.DAI", "M81E.PDB.13.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EFusVPDB13 <- results(dds, contrast = c("Condition", "M81E.Fus.13.DAI", "M81E.PDB.13.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EFus13vColmanFus13 <- results(dds, contrast = c("Condition", "M81E.Fus.13.DAI", "Colman.Fus.13.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EMacro13vColmanMacro13 <- results(dds, contrast = c("Condition", "M81E.Macro.13.DAI", "Colman.Macro.13.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EPDB13vColmanPDB13 <- results(dds, contrast = c("Condition", "M81E.PDB.13.DAI", "Colman.PDB.13.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EFus3vColmanFus3 <- results(dds, contrast = c("Condition", "M81E.Fus.3.DAI", "Colman.Fus.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EMacro3vColmanMacro3 <- results(dds, contrast = c("Condition", "M81E.Macro.3.DAI", "Colman.Macro.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+M81EPDB3vColmanPDB3 <- results(dds, contrast = c("Condition", "M81E.PDB.3.DAI", "Colman.PDB.3.DAI"), lfcThreshold = 1, alpha = 0.05)
+
+```
+
+
+```{r}
+DE <- as.data.frame(M81EMacro) %>%
+  rownames_to_column %>%
+  filter(padj < 0.05) %>%
+  dplyr::select(rowname, log2FoldChange) 
+
+colnames(DE) <- c("Phytozome", paste0("log2FC.", "M81EMacro"))
+myinfo <- full_join(x = DE, y = info, by = "Phytozome") #first time only
+myinfo <- right_join(x = myphytosynonym, y = myinfo, by = "Phytozome")
+myinfo <- right_join(y = myinfo, x = myphytoncbi , by = "Phytozome")
+myinfo <- right_join(y = myinfo, x = myphytogenbank, by = "Phytozome")
+myinfo <- right_join(y = myinfo, x = myphytodeflines, by = "Phytozome")
+myinfo <- right_join(y = myinfo, x = myncbideflines, by = "RefSeq")
+```
+
+```{r}
+myinfo %>%
+  group_by(ModuleColor) %>%
+  summarise(n())
+```
+
+
+
+```{r}
+mytriminfo <- myinfo2[c(1:20, 33:98)]
+moduleInfo <- mytriminfo %>%
+  filter(ModuleColor != "grey") 
+
+dim(moduleInfo)
+write_tsv(moduleInfo, file ="sweetsresults/total-module-info2.tsv")
+```
+
+
+```{r}
+DEinfo <- mytriminfo %>%
+  filter(!is.na(log2FC.ColmanFus) | !is.na(log2FC.ColmanMacro) | !is.na(log2FC.ColmanPDB) | !is.na(log2FC.M81EFus | !is.na(log2FC.M81EMacro) | !is.na(log2FC.M81EPDB) | !is.na(log2FC.M81EFus13vColmanFus13) | !is.na(log2FC.M81EFus3vColmanFus3) | !is.na(log2FC.M81EMacro13vColmanMacro13 | !is.na(log2FC.M81EMacro3vColmanMacro3) | !is.na(log2FC.M81EPDB13vColmanPDB13) | !is.na(log2FC.M81EPDB3vColmanPDB3))))
+dim(DEinfo)
+write.table(DEinfo, file ="sweetsresults/DEinfo2.csv", row.names=FALSE, col.names=TRUE, sep="|", quote=FALSE )
+```
+
+```{r}
+library(pheatmap)
+library(ggpubr)
+library(ggscatter)
+library(ggrepel)
+```
+
+```{r}
+mysweettransp <- c("Sobic.003G149000",
+"Sobic.008G111300",
+"Sobic.002G185300",
+"Sobic.002G338500",
+"Sobic.009G143500",
+"Sobic.004G136600",
+"Sobic.003G182800",
+"Sobic.001G377600",
+"Sobic.005G123500")
+
+myUDP <- c("Sobic.002G173500",
+"Sobic.002G265400",
+"Sobic.001G479800",
+"Sobic.010G120400",
+"Sobic.002G173900",
+"Sobic.003G287600",
+"Sobic.003G042900",
+"Sobic.002G311601",
+"Sobic.002G311900",
+"Sobic.004G230200",
+"Sobic.002G337400",
+"Sobic.010G120200",
+"Sobic.002G311501",
+"Sobic.007G027200",
+"Sobic.007G027301",
+"Sobic.009G187200"
+)
+
+
+myglyco <- c("Sobic.004G300800",
+"Sobic.004G226500",
+"Sobic.001G475800",
+"Sobic.009G169000",
+"Sobic.003G244000",
+"Sobic.010G188300",
+"Sobic.004G261800",
+"Sobic.010G134000"
+)
+
+mysbmyb76targs <- read_lines("mysbmyb76turquoise.csv") #can be found in supplementary file 7
+```
+
+
+Heatmap parameters
+```{r}
+ann_colors <- list(
+    Timepoint = c(`3.DAI` = "white", `13.DAI` ="firebrick"),
+    Treatment = c(PDB = "darkorange", Macro = "black", Fus = "darkorange4"),
+    Line = c(Colman = "#7570B3", M81E = "#E7298A")
+)
+
+annotation_row <- read.csv("C:/Users/maya.khasin/Documents/sweets/bmrsann.csv")
+rownames(annotation_row) <- annotation_row$Phytozome
+annotation_row$Label <- paste0(annotation_row$Phytozome, ",", annotation_row$NCBI_defline)
+myrowlabels <- list(annotation_row$Label)
+
+```
+
+```{r}
+cdata <- colData(dds) %>%
+  as_data_frame() %>%
+  select(-sample.id, -Condition, -sizeFactor) %>%
+  as.data.frame()
+
+rownames(cdata) <- rownames(colData(dds))
+ntd <- normTransform(dds)
+myassay <- assay(ntd)
+pheatmap(assay(ntd),
+    cluster_rows = FALSE,
+    show_rownames = FALSE,
+    cluster_cols = TRUE,
+    annotation_col = as.data.frame(cdata))
+```
+
+
+
+```{r}
+dataSub2 <- myassay[rownames(myassay) %in% mysbmyb76targs, ]
+
+sbmyb76 <- pheatmap(dataSub2,
+    cluster_rows = TRUE,
+    annotation_colors = ann_colors,
+    #labels_row = annotation_row$Label,
+    show_rownames = FALSE,
+    show_colnames = FALSE,
+    cluster_cols = TRUE,
+    annotation_col = as.data.frame(cdata))
+```
+
+```{r}
+#lists of differentially expressed genes that can be recreated by filtering the supplementary xlsx file by module and differential expression
+myredDE <- read_lines("myredDE.csv")
+mybrownDE <- read_lines("mybrownDE.csv")
+mytanDE <- read_lines("mytanDE.csv")
+```
+
+```{r}
+myredlist <- c(
+  "Sobic.008G182300",
+"Sobic.001G145700",
+"Sobic.005G169200",
+"Sobic.006G121500",
+"Sobic.003G229000",
+"Sobic.003G096900",
+"Sobic.008G182900",
+"Sobic.001G401000"
+)
+
+mybrownlist <- read_lines("C:/Users/maya.khasin/Documents/sweets/coolgenes/mybrownint.csv")
+mytanlist <- read_lines("C:/Users/maya.khasin/Documents/sweets/coolgenes/mytanint.csv")
+```
+
+
+```{r}
+#change active module 
+myModule <- "tan"
+myModuleLabel <- "12"
+myList <- mytanDE
+myintList <- mytanlist 
+```
+
+```{r}
+mytempinfo <- myinfo3 %>%
+  filter(ModuleColor == myModule)
+  #filter(Phytozome %in% myList)
+```
+
+
+```{r}
+myredp <- ggscatter(mytempinfo, x = "Z.GS.meta.Fus", y = "Z.kME.meta.ME6", color = alpha("red",0.1),
+          size = 2, xlab = "GS: F. thapsinum", ylab = "Z kME meta 6, red")+
+  #geom_point(alpha = .01)+
+  annotate(geom="text", x= 0, y= 0.8, label=paste0("r = 0.56", "\n", "FDR = 0.03"),
+              color="black",
+           size = 3)+
+  theme(text = element_text(size=8.5))
+
+mybrownplot2 <- ggscatter (mytempinfo, x = "Z.GS.meta.X13.DAI", y = "Z.kME.meta.ME3", color = alpha("brown", 0.1),
+          size = 2, xlab = "GS: 13 DAI", ylab = "Z kME meta 3, brown")+
+  #geom_point(alpha = .4)+
+  annotate(geom="text", x= 0, y= 0.8, label=paste0("r = 0.58", "\n", "FDR = 0.02"),
+              color="black",
+           size = 3)+
+  theme(text = element_text(size=8.5))
+
+mytanp <- ggscatter(mytempinfo, x = "Z.GS.meta.X13.DAI", y = "Z.kME.meta.ME12", color = alpha("brown", 0.2),
+          size = 2, xlab = "GS: 13 DAI", ylab = "Z kME meta 12, tan")+
+  #geom_point(alpha = .)+
+  annotate(geom="text", x= 0, y= 0.8, label=paste0("r = 0.27", "\n", "FDR = 0.5"),
+              color="black",
+           size = 3)+
+  theme(text = element_text(size=8.5))
+
+mytancolman <- ggscatter(mytempinfo, x = "GS.set1.X13.DAI", y = "kME.set1.ME12", color = alpha("tan", 0.2),
+          size = 2, xlab = "GS: 13 DAI", ylab = "Colman, kME tan module")+
+  #geom_point(alpha = .01)+
+  annotate(geom="text", x= 0, y= 0.8, label=paste0("r = 0.27", "\n", "FDR = 0.5"),
+              color="black",
+           size = 3)+
+  theme(text = element_text(size=8.5))
+
+mytanm81e <- ggscatter(mytempinfo, x = "GS.set2.X13.DAI", y = "kME.set2.ME12", color = alpha("tan", 0.2) ,
+          size = 2, xlab = "GS: 13 DAI", ylab = "M81-E, kME, tan module")+
+  #geom_point(alpha = .01)+
+  annotate(geom="text", x= 0, y= 0.8, label=paste0("r = 0.65", "\n", "FDR = 0.005"),
+              color="black",
+           size = 3)+
+  theme(text = element_text(size=8.5))
+```
+
+```{r}
+#change which plot you're working with here
+myactiveplot <- mytanm81e
+```
+
+```{r}
+myfinalplot <- myactiveplot+
+  geom_point(data = subset(mytempinfo, Phytozome %in% mytanDE), color = "tan")+
+  geom_text_repel(data = subset(mytempinfo, Phytozome %in% myintList),
+                  aes(label = Phytozome),
+                  box.padding = unit(0.35, "lines"),
+                  point.padding = unit(0.3, "lines"))
+```
+
+
+
+
+
+
