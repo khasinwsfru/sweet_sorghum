@@ -16,7 +16,5 @@ Transcriptomic analysis using DESeq2 and WGCNA.
 **figure_5.Rmd** <br>
 Code for most of Figure 5; motivation for GAMs. 
 
-**sweets_GAM.Rmd**<br>
-Using generalized additive models (GAMs) to model lesion length in terms of enzyme activities and in terms of levels of phenolic compounds.
-
-
+**enzGAM.R**<br>
+Using generalized additive models (GAMs) to model lesion length in terms of enzyme activities 
