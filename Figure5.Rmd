@@ -1,0 +1,600 @@
+---
+title: "Figure 5"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(nlme)
+library(lme4)
+library(XNomial)
+library(psych)
+library(ggplot2)
+library(limma)
+library(ggcorrplot)
+library(emmeans)
+library(cowplot)
+```
+
+PHENOLICS INITIAL
+Ex
+```{r}
+#Filter data to day 0 for wall-bound and soluble phenolic compounds.
+mywb0 <- wb_phenolics %>%
+  filter(Timepoint == "0DAI")
+mysol0 <- sol_phenolics %>%
+  filter(Timepoint == "0DAI")
+
+#Coumaric acid 
+A0 <- ggplot(mywb0, aes(x = mywb0$Line, y = mywb0$WB_4_Coumaric_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+B0 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_4_Coumaric_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+C0 <- ggplot(mywb0, aes(x = mywb0$Line, y = mywb0$WB_Caffeic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+  
+D0 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_Caffeic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+E0 <- ggplot(mywb0, aes(x = mywb0$Line, y = mywb0$WB_Ferulic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+F0 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_Ferulic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+
+G0 <- ggplot(mywb0, aes(x = mywb0$Line, y = mywb0$WB_Syringaldehyde))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+H0 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_Syringaldehyde))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+
+I0 <- ggplot(mywb0, aes(x = mywb0$Line, y = mywb0$WB_Syringic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+J0 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_Syringic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+K0 <- ggplot(mywb0, aes(x = mywb0$Line, y = mywb0$WB_Sinapinic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+L0 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_Sinapinic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+#plot_grid(A0, B0, C0, D0, E0, F0, G0, H0, I0, J0, K0, L0, ncol = 2)
+```
+
+```{r}
+wbtrt <- wb_phenolics %>%
+  filter(Timepoint != "0DAI")
+wbtrt <- as.data.frame(wbtrt)
+```
+
+
+```{r}
+wallbound <- filter(wallbound, Timepoint != "0DAI")
+wallbound$Timepoint <- relevel(factor(wallbound$Timepoint), "3DAI")
+sol_phenolics <- filter(sol_phenolics, Timepoint !="0DAI")
+sol_phenolics$Timepoint <- relevel(factor(sol_phenolics$Timepoint), "3DAI")
+sol_phenolics$Treatment <- relevel(factor(sol_phenolics$Treatment), "PDB")
+```
+
+
+
+
+PHENOLICS PATHOLOGY
+#plot_grid(my1a, my1b, my2a, my2b, my3a, my3b, my4a, my4b, my5a, my5b, my6a, my6b, ncol = 2)
+```{r}
+my1a <- ggerrorplot(wallbound, x = "Treatment", y = "WB_4_Coumaric_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+my1b <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_4_Coumaric_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+my2a <- ggerrorplot(wallbound, x = "Treatment", y = "WB_Caffeic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+my2b <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Caffeic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+my3a <- ggerrorplot(wallbound, x = "Treatment", y = "WB_Ferulic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+my3b <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Ferulic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+my4a <- ggerrorplot(wallbound, x = "Treatment", y = "WB_Syringic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+my4b <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Syringic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+my5a <- ggerrorplot(wallbound, x = "Treatment", y = "WB_Syringaldehyde", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+my5b <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Syringaldehyde", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+my6a <- ggerrorplot(wallbound, x = "Treatment", y = "WB_Sinapinic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.text.x = element_text(angle = 30, vjust = 0.5))+
+  facet_wrap("Line")
+
+my6b <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Sinapinic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.text.x = element_text(angle = 30, vjust = 0.5))+
+  facet_wrap("Line")
+```
+
+
+TCA Baselines (0 DAI)
+```{r}
+TCA01 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_Citric_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+  
+TCA02 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_Aconitic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+TCA03 <- ggplot(mywb0, aes(x = mysol0$Line, y = mysol0$Sol_Butanedioic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+TCA04 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_2_Butenedioic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+
+TCA05 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_Malic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+TCA06 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Lactic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+TCA07 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_Glycolic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+       
+
+TCA08 <- ggplot(mysol0, aes(x = mysol0$Line, y = mysol0$Sol_Oxalic_acid))+
+  geom_boxplot(alpha = 0.3, outlier.shape = NA)+
+  geom_point(shape = 19, size = 2, stat = "identity", alpha = 0.5)+
+  theme_light()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+#plot_grid(TCA01, TCA02, TCA03, TCA04, TCA05, TCA06, TCA07, TCA08, nrow = 8)
+#plot_grid(TCA01, NULL, TCA02, NULL, TCA03, NULL,TCA04, NULL,TCA05, NULL,TCA06,NULL,TCA07,NULL,TCA08,NULL, nrow = 8, ncol = 2)
+```
+
+
+TCA PATHOLOGY
+#plot_grid(my1a, my1b, my2a, my2b, my3a, my3b, my4a, my4b, my5a, my5b, my6a, my6b, ncol = 2)
+```{r}
+TCAP1 <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Citric_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+TCAP2 <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Aconitic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+TCAP3 <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Butanedioic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+TCAP4 <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_2_Butenedioic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+TCAP5 <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Malic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+TCAP6 <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Lactic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+TCAP7 <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Glycolic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+
+TCAP8 <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Oxalic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", strip.text.x = element_blank(), axis.text.x = element_text(angle = 30, vjust = 0.5))+
+  facet_wrap("Line")
+#plot_grid(TCAP1, TCAP2, TCAP3, TCAP4, TCAP5, TCAP6, TCAP7, TCAP8, nrow = 8, ncol = 1)
+```
+
+
+
+
+```{r}
+#FOR everything, APPLY the model, then get the letters, averaging over the otehr factors
+
+mylm <- lm(Sol_Syringaldehyde ~ Line * Treatment * Timepoint, data = lesionsolphenolics)
+#plot(mylm)
+anova(mylm)
+mymarg = emmeans(mylm, 
+                   ~Line*Timepoint
+                   )
+(CLD <- cld(mymarg,
+    alpha=0.05,
+    Letters=letters,
+    level = 0.9,
+    adjust="BH"))
+```
+
+0 DAI (baseline) phenolic concentrations
+```{r}
+#Wall-bound
+t.test(WB_Syringic_acid ~ Line, data = mywb0) # p = 0.0065 12.67 vs 11.75
+t.test(WB_Syringaldehyde ~ Line, data = mywb0) # p-value = 0.03248 14.04 vs 14.55
+t.test(WB_Sinapinic_acid ~ Line, data = mywb0) #p = 0.65 Lol NS
+t.test(WB_Ferulic_acid ~ Line, data = mywb0) #NS p-value = 0.6164
+t.test(WB_Caffeic_acid ~ Line, data = mywb0) #NS-value = 0.923
+t.test(WB_4_Coumaric_acid ~ Line, data = mywb0) #NS - RIP - p-value = 0.06128
+
+#Soluble
+t.test(Sol_Syringic_acid ~ Line, data = mysol0) # p-value = 3.205e-05, 10.575593 9.173342 
+t.test(Sol_Syringaldehyde ~ Line, data = mysol0) # p-value = 0.09201 10.934401  9.482797
+t.test(Sol_Sinapinic_acid ~ Line, data = mysol0) #NS
+t.test(Sol_Ferulic_acid ~ Line, data = mysol0) #NS 
+t.test(Sol_Caffeic_acid ~ Line, data = mysol0) #NS
+t.test(Sol_4_Coumaric_acid ~ Line, data = mysol0) #NS 
+```
+```{r}
+t.test(Sol_Citric_acid ~ Line, data = mysol0) #NS p-value = 0.5618
+t.test(Sol_Aconitic_acid ~ Line, data = mysol0) # p-value = 0.0005933
+t.test(Sol_Butanedioic_acid ~ Line, data = mysol0) #p-value = 0.4828
+t.test(Sol_2_Butenedioic_acid ~ Line, data = mysol0) #p-value = 0.0487
+t.test(Sol_Malic_acid ~ Line, data = mysol0) #p-value = 0.03438
+t.test(Lactic_acid ~ Line, data = mysol0) #p-value = 0.0114 
+t.test(Sol_Glycolic_acid ~ Line, data = mysol0) #p-value = 0.01407
+t.test(Sol_Oxalic_acid ~ Line, data = mysol0) #NS 
+```
+
+
+
+
+```{r}
+foo <- ggplot(sweetsinfo, aes(x = sweetsinfo$Line, y = sweetsinfo$`Lesion (mm)`)) +
+  geom_boxplot()+
+  geom_point()+
+  facet_grid("Timepoint")
+  #facet_grid("Line")
+
+sweetsinfo13 <- sweetsinfo %>%
+  filter(sweetsinfo$Timepoint == "13.DAI")
+#t.test(sweetsinfo13$`Lesion (mm)`~sweetsinfo13$Line, data = sweetsinfo)
+
+bar <- lm(`Lesion (mm)`~ Line*Treatment, data = sweetsinfo13)
+anova(bar)
+```
+
+```{r}
+m <- emmeans(bar, 
+                   ~Line*Treatment
+                   )
+#library(multcomp)
+#library(multcompView)
+(mycld <- cld(m,
+    alpha=0.05,
+    Letters=letters,
+    level = 0.9,
+    adjust="none"))
+```
+
+
+
+Soluble phenolics plots
+```{r}
+malonicplot <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Propanedioic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+sol2hbplot <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_2_Hydroxybutyric_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+
+solvanillicplot <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Vanillic_Acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+sol4hbplot <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_4_Hydroxybenzoic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+solbenzoicplot <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Benzoic_Acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))
+#  theme(legend.position = "none", axis.title.x=element_blank(),
+#        axis.text.x=element_blank(),
+#        axis.ticks.x=element_blank())+
+#  facet_wrap("Line")
+
+solisovanillin <- ggerrorplot(sol_phenolics, x = "Treatment", y = "Sol_Isovanillin", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+```
+
+
+Wall-bound phenolic plots
+```{r}
+wbvanillicplot <- ggerrorplot(wallbound, x = "Treatment", y = "WB_Vanillic_Acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+wb4hbplot <- ggerrorplot(wallbound, x = "Treatment", y = "WB_4_Hydroxybenzoic_acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+
+wbbenzoicplot <- ggerrorplot(wallbound, x = "Treatment", y = "WB_Benzoic_Acid", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+#  theme(legend.position = "none", axis.title.x=element_blank(),
+#        axis.text.x=element_blank(),
+#        axis.ticks.x=element_blank())+
+#  facet_wrap("Line")
+
+wbisovanillin <- ggerrorplot(wallbound, x = "Treatment", y = "WB_Isovanillin", color = "Timepoint", palette = "grey",
+            desc_stat = "mean_ci",
+            #error.plot = "errorbar",            
+            add = c("mean", "jitter"))+
+  theme(legend.position = "none", axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  facet_wrap("Line")
+```
+
+
